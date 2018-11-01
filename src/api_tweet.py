@@ -10,6 +10,7 @@ from config import twitter_api
 app = FlaskAPI(__name__)
 
 
+# Sample Response of our API
 def default_response():
     return {
         'result': [],
@@ -22,56 +23,79 @@ def default_response():
     }
 
 
-def get_user_tweets(user_name, since_id=None, max=None):
-    try:
-        response = default_response()
+class Tweet:
+    total_count = 10  # Total Tweet Count
 
-        total_count = 10
-        tweet_list = []
+    def __init__(self, username, since_id, max):
+        self.user_name = username
+        self.since_id = since_id
+        self.max = max
 
-        next, prev = None, None
-        tweets = []
+    def __repr__(self):
+        return "%s, %s, %s" % (self.user_name, self.since_id, self.max)
+
+    def get_user_tweets(self):
         try:
-            if since_id is not None and max is None:
-                tweets = twitter_api.user_timeline(screen_name=user_name, count=total_count, max_id=int(since_id) + 1)
-            elif since_id is None and max is not None:
-                tweets = twitter_api.user_timeline(screen_name=user_name, count=total_count, since_id=int(max) - 1)
-            else:
-                tweets = twitter_api.user_timeline(screen_name=user_name, count=total_count)
+            response = default_response()
+            tweet_list = []
+            next, prev = None, None
+
+            tweets = []
+            try:
+                if self.since_id is not None and self.max is None:
+                    tweets = twitter_api.user_timeline(screen_name=self.user_name,
+                                                       count=self.total_count,
+                                                       max_id=int(self.since_id) + 1)
+
+                elif self.since_id is None and self.max is not None:
+                    tweets = twitter_api.user_timeline(screen_name=self.user_name,
+                                                       since_id=int(self.max),
+                                                       count=self.total_count)
+                else:
+                    tweets = twitter_api.user_timeline(screen_name=self.user_name,
+                                                       count=self.total_count)
+
+            except Exception as e:
+                response['response']['t_msg'] = "{twitter_reason}".format(twitter_reason=e.message[0]['message'])
+                response['response']['t_respcode'] = e.api_code
+
+            # If there are tweets present of a user, Set Pagination for next and prev element
+            if len(tweets) != 0:
+
+                # If number of tweets are equal to the total count, then send an next element
+                if len(tweets) == self.total_count:
+                    next = request.host_url.rstrip('/') + url_for('user_tweets',
+                                                                  user_handle=self.user_name,
+                                                                  since_id=long(
+                                                                      tweets[len(tweets) - 1]._json['id']) + 1)
+
+                if self.since_id is not None and self.max is None:
+                    prev = request.host_url.rstrip('/') + url_for('user_tweets',
+                                                                  user_handle=self.user_name,
+                                                                  max_id=int(tweets[0]._json['id'])
+                                                                  )
+
+                # Enumerating over list and appending the tweets data into the tweet_list
+                for index, tweet in enumerate(tweets):
+                    tweet_list.append({
+                        'tweet': tweet._json['text'],
+                        'id': tweet._json['id'],
+                        'username': self.user_name,
+                        'profile_background_image_url_https': tweet._json['user']['profile_background_image_url_https'],
+                        'favorite_count': tweet._json['favorite_count']
+                    })
+
+            response['result'] = tweet_list
+            response['response']['next'] = next
+            response['response']['previous'] = prev
 
         except Exception as e:
-            response['response']['t_msg'] = "{twitter_reason}".format(twitter_reason=e.message[0]['message'])
-            response['response']['t_respcode'] = e.api_code
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+            print(exc_type, fname, exc_tb.tb_lineno, e)
 
-        # If there are tweets present of a user, Set Pagination for next and prev element
-
-        if len(tweets) != 0:
-            if len(tweets) == total_count:
-                next = request.host_url.rstrip('/') + url_for('user_tweets',
-                                                              user_handle=user_name,
-                                                              since_id=tweets[len(tweets) - 1]._json['id']
-                                                              )
-
-            if since_id is not None:
-                prev = request.host_url.rstrip('/') + url_for('user_tweets',
-                                                              user_handle=user_name,
-                                                              max=tweets[0]._json['id']
-                                                              )
-
-            for index, tweet in enumerate(tweets):
-                tweet_list.append(tweet._json)
-
-        response['result'] = tweet_list
-        response['response']['next'] = next
-        response['response']['previous'] = prev
-
-    except Exception as e:
-        exc_type, exc_obj, exc_tb = sys.exc_info()
-        fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-        print(exc_type, fname, exc_tb.tb_lineno)
-
-    finally:
-        return response
+        finally:
+            return response
 
 
 @app.route("/<string:user_handle>/", methods=['GET'])
@@ -79,7 +103,8 @@ def user_tweets(user_handle):
     if request.method == 'GET':
         since_id = request.args.get('since_id')
         end_id = request.args.get('max')
-        return get_user_tweets(user_handle, since_id, end_id), status.HTTP_200_OK
+        tweets = Tweet(user_handle, since_id, end_id)
+        return tweets.get_user_tweets(), status.HTTP_200_OK
     else:
         return '', status.HTTP_400_BAD_REQUEST
 
