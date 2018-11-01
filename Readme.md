@@ -26,7 +26,13 @@ pip install -r req.txt
 
 Final Step
 ```terminal
-Run the api_tweet.py
+Set up twitter credential
+consumer_key = ''
+consumer_secret = ''
+access_token = ''
+access_token_secret = ''
+
+Run 
 python api_tweet.py 
 ```
 
@@ -37,7 +43,7 @@ Check everything is working as expected
 
 Head to browser for accesing API
 ```terminal
-http://127.0.0.1:5000/twitter_user_handle
+http://127.0.0.1:5000/{twitter_user_handle}
 ```
 
 It should return success response
