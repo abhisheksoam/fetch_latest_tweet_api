@@ -1,0 +1,2 @@
+Flask-API==1.0
+tweepy==3.6.0
