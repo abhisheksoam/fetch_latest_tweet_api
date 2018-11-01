@@ -2,10 +2,11 @@ __author__ = 'abhishek'
 
 import os
 import sys
+import tweepy
 
 from flask import request, url_for
 from flask_api import FlaskAPI, status, exceptions
-from config import twitter_api
+from config import consumer_key, consumer_secret, access_token, access_token_secret
 
 app = FlaskAPI(__name__)
 
@@ -24,9 +25,12 @@ def default_response():
 
 
 class Tweet:
-    total_count = 10  # Total Tweet Count
+    _total_count = 10  # Total Tweet Count
 
     def __init__(self, username, since_id, max):
+        auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
+        auth.set_access_token(access_token, access_token_secret)
+        self.twitter_api = tweepy.API(auth)
         self.user_name = username
         self.since_id = since_id
         self.max = max
@@ -43,17 +47,17 @@ class Tweet:
             tweets = []
             try:
                 if self.since_id is not None and self.max is None:
-                    tweets = twitter_api.user_timeline(screen_name=self.user_name,
-                                                       count=self.total_count,
-                                                       max_id=int(self.since_id) + 1)
+                    tweets = self.twitter_api.user_timeline(screen_name=self.user_name,
+                                                            count=self._total_count,
+                                                            max_id=int(self.since_id) + 1)
 
                 elif self.since_id is None and self.max is not None:
-                    tweets = twitter_api.user_timeline(screen_name=self.user_name,
-                                                       since_id=int(self.max),
-                                                       count=self.total_count)
+                    tweets = self.twitter_api.user_timeline(screen_name=self.user_name,
+                                                            since_id=int(self.max),
+                                                            count=self._total_count)
                 else:
-                    tweets = twitter_api.user_timeline(screen_name=self.user_name,
-                                                       count=self.total_count)
+                    tweets = self.twitter_api.user_timeline(screen_name=self.user_name,
+                                                            count=self._total_count)
 
             except Exception as e:
                 response['response']['t_msg'] = "{twitter_reason}".format(twitter_reason=e.message[0]['message'])
@@ -63,7 +67,7 @@ class Tweet:
             if len(tweets) != 0:
 
                 # If number of tweets are equal to the total count, then send an next element
-                if len(tweets) == self.total_count:
+                if len(tweets) == self._total_count:
                     next = request.host_url.rstrip('/') + url_for('user_tweets',
                                                                   user_handle=self.user_name,
                                                                   since_id=long(
@@ -98,7 +102,7 @@ class Tweet:
             return response
 
 
-@app.route("/<string:user_handle>/", methods=['GET'])
+@app.route("/api/tweets/<string:user_handle>/", methods=['GET'])
 def user_tweets(user_handle):
     if request.method == 'GET':
         since_id = request.args.get('since_id')

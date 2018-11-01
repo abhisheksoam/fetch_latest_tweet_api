@@ -43,7 +43,7 @@ Check everything is working as expected
 
 Head to browser for accesing API
 ```terminal
-http://127.0.0.1:5000/{twitter_user_handle}
+http://127.0.0.1:5000/api/tweets/{twitter_user_handle}
 ```
 
 It should return success response
